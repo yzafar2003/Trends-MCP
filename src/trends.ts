@@ -150,7 +150,13 @@ function qs(params: Record<string, string>): string {
 
 // -- trending now (rss) -------------------------------------------------------
 
+export function normalizeGeo(geo: string | undefined): string {
+  const g = (geo ?? "").trim().toUpperCase();
+  return g || "US";
+}
+
 export async function trendingNow(geo = "US", limit = 20): Promise<TrendingSearch[]> {
+  geo = normalizeGeo(geo);
   const all = await cached(`trending:${geo}`, async () => {
     const xml = await fetchText(`${BASE}/trending/rss?geo=${encodeURIComponent(geo)}`, false);
     const parser = new XMLParser({ ignoreAttributes: false, removeNSPrefix: true });
@@ -202,6 +208,7 @@ interface Widget {
 }
 
 async function explore(keywords: string[], geo: string, timeframe: string): Promise<Widget[]> {
+  geo = normalizeGeo(geo);
   const key = `explore:${geo}:${timeframe}:${keywords.join("|")}`;
   return cached(key, async () => {
     const req = {
@@ -257,9 +264,12 @@ export async function interestOverTime(
     values: p.value,
     isPartial: Boolean(p.isPartial),
   }));
+  // google sends an empty averages array for a single keyword, so compute it
+  const given = data.default.averages;
   const averages =
-    data.default.averages ??
-    keywords.map((_, i) =>
+    given && given.length === keywords.length
+      ? given
+      : keywords.map((_, i) =>
       points.length
         ? Math.round(points.reduce((s, p) => s + (p.values[i] ?? 0), 0) / points.length)
         : 0,
@@ -344,7 +354,7 @@ export interface ContextOptions {
 // parts are best effort - if explore gets rate limited we still return the
 // trending list and mention what's missing.
 export async function buildTrendsContext(opts: ContextOptions = {}): Promise<string> {
-  const geo = opts.geo ?? "US";
+  const geo = normalizeGeo(opts.geo);
   const timeframe = opts.timeframe ?? "today 3-m";
   const keywords = (opts.keywords ?? []).map((k) => k.trim()).filter(Boolean).slice(0, 5);
   const sections: string[] = [];

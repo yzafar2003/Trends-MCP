@@ -1,16 +1,12 @@
-/**
- * Minimal Google Trends client.
- *
- * Google Trends has no official public API. This module uses the same
- * endpoints the trends.google.com web app uses:
- *
- *  - /trending/rss            -> "Trending now" searches (stable RSS feed)
- *  - /trends/api/explore      -> issues per-widget tokens for a query
- *  - /trends/api/widgetdata/* -> interest over time, related queries
- *
- * Google rate limits these endpoints (HTTP 429). Results are cached in memory
- * for a short time so repeated calls from the model do not hammer them.
- */
+// Google Trends client. There's no official API so this hits the same
+// endpoints the trends.google.com frontend uses:
+//
+//   /trending/rss             trending searches (plain RSS, pretty stable)
+//   /trends/api/explore       hands out per-widget tokens for a query
+//   /trends/api/widgetdata/*  the actual timeline / related data
+//
+// Google will 429 you if you're too chatty, so everything is cached for a few
+// minutes.
 
 import { XMLParser } from "fast-xml-parser";
 
@@ -94,9 +90,7 @@ export class TrendsError extends Error {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Cache
-// ---------------------------------------------------------------------------
+// -- cache --------------------------------------------------------------------
 
 const CACHE_TTL_MS = Number(process.env.TRENDS_CACHE_TTL_MS ?? 5 * 60 * 1000);
 const cache = new Map<string, { expires: number; value: unknown }>();
@@ -109,9 +103,7 @@ async function cached<T>(key: string, fn: () => Promise<T>): Promise<T> {
   return value;
 }
 
-// ---------------------------------------------------------------------------
-// HTTP helpers
-// ---------------------------------------------------------------------------
+// -- http ---------------------------------------------------------------------
 
 let cookie: string | null = null;
 
@@ -133,7 +125,7 @@ async function fetchText(url: string, withCookie: boolean): Promise<string> {
   if (withCookie) headers.Cookie = await getCookie();
   const res = await fetch(url, { headers, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
   if (res.status === 429) {
-    cookie = null; // force a fresh cookie next time
+    cookie = null; // grab a fresh NID next time, sometimes that's enough
     throw new TrendsError(
       "Google Trends rate-limited the request (HTTP 429). Wait a minute and try again.",
       429,
@@ -145,7 +137,7 @@ async function fetchText(url: string, withCookie: boolean): Promise<string> {
   return res.text();
 }
 
-/** Google prefixes its JSON responses with a ")]}'" guard against JSON hijacking. */
+// responses start with )]}' which has to be stripped before JSON.parse
 const JSON_GUARD = /^\)\]\}['"]?,?\s*/;
 
 function parseGoogleJson<T>(text: string): T {
@@ -156,9 +148,7 @@ function qs(params: Record<string, string>): string {
   return new URLSearchParams(params).toString();
 }
 
-// ---------------------------------------------------------------------------
-// Trending now (RSS)
-// ---------------------------------------------------------------------------
+// -- trending now (rss) -------------------------------------------------------
 
 export async function trendingNow(geo = "US", limit = 20): Promise<TrendingSearch[]> {
   const all = await cached(`trending:${geo}`, async () => {
@@ -203,9 +193,7 @@ function toTrendingSearch(item: RssItem, rank: number): TrendingSearch {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Explore (token issuance)
-// ---------------------------------------------------------------------------
+// -- explore (gets us widget tokens) ------------------------------------------
 
 interface Widget {
   id: string;
@@ -243,9 +231,7 @@ async function widgetData<T>(path: string, w: Widget): Promise<T> {
   return parseGoogleJson<T>(await fetchText(url, true));
 }
 
-// ---------------------------------------------------------------------------
-// Interest over time
-// ---------------------------------------------------------------------------
+// -- interest over time -------------------------------------------------------
 
 interface MultilineResponse {
   default: {
@@ -281,9 +267,7 @@ export async function interestOverTime(
   return { keywords, geo, timeframe, points, averages };
 }
 
-// ---------------------------------------------------------------------------
-// Related queries
-// ---------------------------------------------------------------------------
+// -- related queries ----------------------------------------------------------
 
 interface RankedKeyword {
   query: string;
@@ -314,9 +298,8 @@ export async function relatedQueries(
   return { keyword, geo, timeframe, top: pick(top), rising: pick(rising) };
 }
 
-// ---------------------------------------------------------------------------
-// Formatting helpers (shared by tools, the prompt, and the Claude Code hook)
-// ---------------------------------------------------------------------------
+// -- formatting ---------------------------------------------------------------
+// plain text, the model reads this directly
 
 export function formatTrending(items: TrendingSearch[], geo: string): string {
   if (items.length === 0) return `No trending searches returned for ${geo}.`;
@@ -357,11 +340,9 @@ export interface ContextOptions {
   trendingLimit?: number;
 }
 
-/**
- * Build the block of Google Trends context that gets added to a question.
- * Keyword-specific sections are best-effort: if Google rate-limits them the
- * trending list is still returned, with a note explaining what was skipped.
- */
+// Builds the block that gets stuck in front of the user's question. The keyword
+// parts are best effort - if explore gets rate limited we still return the
+// trending list and mention what's missing.
 export async function buildTrendsContext(opts: ContextOptions = {}): Promise<string> {
   const geo = opts.geo ?? "US";
   const timeframe = opts.timeframe ?? "today 3-m";

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "google-trends": {
+      "command": "node",
+      "args": ["dist/index.js"],
+      "env": {
+        "TRENDS_GEO": "US"
+      }
+    }
+  }
+}

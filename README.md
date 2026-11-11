@@ -2,13 +2,13 @@
 
 An [MCP](https://modelcontextprotocol.io) server that fetches the latest **Google Trends** data and adds it to the question sent to the model. Works with **Claude Code** and **Cursor**.
 
-It does three things:
+What it does:
 
-1. Connects to Claude Code or Cursor over stdio like any other MCP server.
-2. Fetches live Google Trends data: trending searches, interest over time, related queries.
-3. Adds that data to the question, either on demand (tool / slash command) or automatically on every prompt (Claude Code hook).
+1. Runs as a stdio MCP server so Claude Code or Cursor can spawn it.
+2. Pulls live Google Trends data: trending searches, interest over time, related queries.
+3. Adds that data to your question, either when you ask (tool / slash command) or on every prompt (Claude Code hook).
 
-No API key is needed. Google Trends has no official API, so the server talks to the same endpoints the trends.google.com web app uses and caches results for five minutes to stay under Google's rate limits.
+No API key. Google Trends doesn't have a public API, so this uses the same endpoints the trends.google.com site uses and caches results for five minutes so Google doesn't start rate limiting.
 
 ## Requirements
 
@@ -156,11 +156,11 @@ Source layout:
 - `src/hook.ts`: Claude Code `UserPromptSubmit` hook.
 - `scripts/smoke.mjs`: end-to-end check using the MCP client SDK.
 
-## Limitations
+## Caveats
 
-- Google rate-limits the explore endpoints. If you see "HTTP 429", wait a minute. The trending feed is more tolerant and is always attempted first.
-- The "Trending now" feed is what Google publishes as RSS: roughly the last 24 hours, per country.
-- These are unofficial endpoints and can change without notice.
+- The explore endpoints get rate limited fairly easily. If you see HTTP 429, wait a minute and retry. The trending RSS feed is much more forgiving and is always fetched first.
+- "Trending now" is whatever Google puts in the RSS feed, roughly the last 24h per country.
+- These are unofficial endpoints. They could change or break at any time.
 
 ## License
 

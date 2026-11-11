@@ -1,6 +1,6 @@
-// End-to-end smoke test: spawns the built server over stdio like Claude Code
-// or Cursor would, lists tools, and exercises each one against live Google
-// Trends. Run with: npm run build && npm run smoke
+// quick end to end check - spawns dist/index.js over stdio the same way an
+// editor would and calls each tool against real google trends.
+// npm run build && npm run smoke
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { fileURLToPath } from "node:url";

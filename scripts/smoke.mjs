@@ -43,7 +43,7 @@ show(
 
 const prompt = await client.getPrompt({
   name: "ask_with_trends",
-  arguments: { question: "What should I write about today?", geo: "GB" },
+  arguments: { geo: "GB", keywords: "keywords=bitcoin" },
 });
 console.log("\n## ask_with_trends prompt\n" + firstLine(prompt.messages[0].content.text) + "\n...");
 

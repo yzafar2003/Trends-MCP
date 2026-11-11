@@ -23,7 +23,8 @@ const DEFAULT_GEO = process.env.TRENDS_GEO ?? "US";
 
 const geoSchema = z
   .string()
-  .regex(/^[A-Z]{2}(-[A-Z0-9]{1,3})?$/, "Use an ISO country code such as US, GB, IN or a region such as US-CA")
+  .regex(/^[a-z]{2}(-[a-z0-9]{1,3})?$/i, "Use an ISO country code such as US, GB, IN or a region such as US-CA")
+  .transform((g) => g.toUpperCase())
   .default(DEFAULT_GEO)
   .describe("Country or region code, e.g. US, GB, IN, PK, US-CA");
 
@@ -149,32 +150,56 @@ server.registerPrompt(
   {
     title: "Ask with Google Trends context",
     description:
-      "Fetches the latest Google Trends data and sends your question to the model with that data attached.",
+      "Fetches the latest Google Trends data and attaches it to the question you type after the command. Optional leading tokens: a country code like GB (or geo=GB) and keywords=term1,term2.",
     argsSchema: {
-      question: z.string().min(1).describe("Your question"),
-      geo: z.string().optional().describe("Country code, default US"),
-      keywords: z.string().optional().describe("Comma-separated terms to look up in detail"),
+      geo: z.string().optional().describe("Country code such as GB, or geo=GB. Defaults to US."),
+      keywords: z.string().optional().describe("keywords=term1,term2 to look up specific terms (max 5)"),
     },
   },
-  async ({ question, geo, keywords }) => {
-    const kw = (keywords ?? "")
-      .split(",")
-      .map((k) => k.trim())
-      .filter(Boolean);
-    const context = await buildTrendsContext({ geo: geo || DEFAULT_GEO, keywords: kw });
+  async ({ geo, keywords }) => {
+    const opts = parsePromptOptions([geo, keywords]);
+    const context = await buildTrendsContext({ geo: opts.geo ?? DEFAULT_GEO, keywords: opts.keywords });
     return {
       messages: [
         {
           role: "user",
           content: {
             type: "text",
-            text: `${context}\n\nUse the Google Trends data above wherever it is relevant, and say which trends you relied on.\n\n${question}`,
+            text: `${context}\n\nUse the Google Trends data above wherever it is relevant and say which trends you relied on. Answer the question the user typed after the ask_with_trends command. If they did not type a question, summarize what is trending and why.`,
           },
         },
       ],
     };
   },
 );
+
+// Editors hand each prompt argument a single whitespace token, in order, so the
+// first words of a question can land in geo / keywords. Only treat a token as
+// an option when it clearly is one: geo=XX, keywords=a,b or a bare UPPERCASE
+// country code. Everything else is just part of the question and gets ignored
+// here (the model still sees the full command line).
+function parsePromptOptions(tokens: (string | undefined)[]): { geo?: string; keywords: string[] } {
+  let geo: string | undefined;
+  let keywords: string[] = [];
+  for (const raw of tokens) {
+    const t = (raw ?? "").trim();
+    if (!t) continue;
+    const g = /^geo=([a-z]{2}(?:-[a-z0-9]{1,3})?)$/i.exec(t) ?? /^([A-Z]{2}(?:-[A-Z0-9]{1,3})?)$/.exec(t);
+    if (g) {
+      geo = g[1].toUpperCase();
+      continue;
+    }
+    const k = /^(?:keywords?|kw)=(.+)$/i.exec(t);
+    if (k) {
+      keywords = k[1]
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean)
+        .slice(0, 5);
+    }
+  }
+  return { geo, keywords };
+}
 
 async function main() {
   const transport = new StdioServerTransport();

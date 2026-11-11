@@ -35,11 +35,15 @@ claude mcp add --scope user google-trends -- node "C:/path/to/Trends-MCP/dist/in
 
 Verify with `claude mcp list`. You should see `google-trends: ... - ✓ Connected`.
 
-Then either ask naturally ("what is trending in the UK right now?") and Claude will call the tools, or use the slash command, which fetches the data and sends it with your question:
+Then either ask naturally ("what is trending in the UK right now?") and Claude will call the tools, or use the slash command, which fetches the data first and sends it along with whatever you type after it:
 
 ```
 /mcp__google-trends__ask_with_trends What should my next blog post be about?
+/mcp__google-trends__ask_with_trends GB What should my next blog post be about?
+/mcp__google-trends__ask_with_trends GB keywords=bitcoin,ethereum Which of these is getting more attention?
 ```
+
+Options go first, as single tokens: an UPPERCASE country code (or `geo=gb`) and `keywords=a,b,c` for terms to look up in detail. Everything else is your question. Claude Code splits the text after a command on spaces and feeds the tokens to the prompt's arguments one by one, which is why the options have to be single words and why a lowercase country code is only accepted in the `geo=` form.
 
 ### Automatic injection on every prompt (Claude Code hook)
 
@@ -89,7 +93,7 @@ Add the server to `.cursor/mcp.json` in your project (a copy is included in this
 }
 ```
 
-Enable it under **Cursor Settings → MCP**. In Agent mode, Cursor will call `add_trends_to_question` or the other tools when your question depends on what people are searching for. The `ask_with_trends` prompt is also available where Cursor exposes MCP prompts.
+Enable it under **Cursor Settings → MCP**. In Agent mode, Cursor will call `add_trends_to_question` or the other tools when your question depends on what people are searching for. You can also nudge it: "use add_trends_to_question first, then answer". Cursor supports MCP tools and resources but, at the time of writing, not MCP prompts, so the `ask_with_trends` slash command is a Claude Code thing.
 
 ## What the server exposes
 
@@ -106,7 +110,7 @@ Common arguments: `geo` (ISO country or region code, e.g. `US`, `GB`, `IN`, `PK`
 
 ### Prompt
 
-`ask_with_trends(question, geo?, keywords?)` returns a single user message containing the trends block followed by the question. Claude Code exposes it as `/mcp__google-trends__ask_with_trends`.
+`ask_with_trends(geo?, keywords?)` fetches the data and returns a user message containing the trends block plus an instruction to answer the question typed after the command. Claude Code exposes it as `/mcp__google-trends__ask_with_trends`. Both arguments are optional single tokens: `GB` or `geo=gb`, and `keywords=term1,term2`.
 
 ### What the injected block looks like
 

@@ -1,20 +1,15 @@
 #!/usr/bin/env node
-/**
- * Claude Code "UserPromptSubmit" hook.
- *
- * Claude Code runs this before every prompt is sent to the model. It fetches
- * the latest Google Trends data and returns it as additional context, so the
- * data is added to the question automatically without the model having to
- * call a tool first.
- *
- * Environment:
- *   TRENDS_GEO           country code, default US
- *   TRENDS_LIMIT         how many trending searches to include, default 10
- *   TRENDS_HOOK_TRIGGER  optional regex; when set, context is only added if the
- *                        prompt matches it (e.g. "trend|popular|viral")
- *
- * Any failure exits 0 with no output so the prompt is never blocked.
- */
+// UserPromptSubmit hook for Claude Code. Runs before each prompt goes out and
+// tacks the current trends onto it as extra context, so you don't have to
+// rely on the model deciding to call a tool.
+//
+//   TRENDS_GEO           country code (US)
+//   TRENDS_LIMIT         how many trending searches to include (10)
+//   TRENDS_HOOK_TRIGGER  regex - if set, only inject when the prompt matches,
+//                        e.g. "trend|popular|viral"
+//
+// If anything goes wrong we just print nothing and exit 0. Never block the
+// prompt over this.
 
 import { buildTrendsContext } from "./trends.js";
 
@@ -51,6 +46,4 @@ async function main() {
   );
 }
 
-main().catch(() => {
-  /* never block the prompt */
-});
+main().catch(() => {});

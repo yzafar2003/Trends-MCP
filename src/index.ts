@@ -1,12 +1,7 @@
 #!/usr/bin/env node
-/**
- * Trends-MCP: an MCP server that fetches the latest Google Trends data and
- * adds it to the question sent to the model (Claude Code or Cursor).
- *
- * Exposes:
- *   tools   trending_now, interest_over_time, related_queries, add_trends_to_question
- *   prompt  ask_with_trends  (shows up as a slash command in Claude Code / Cursor)
- */
+// MCP server for Google Trends. Runs over stdio so Claude Code / Cursor can
+// spawn it. Tools: trending_now, interest_over_time, related_queries,
+// add_trends_to_question. Prompt: ask_with_trends (slash command).
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -52,9 +47,7 @@ function failure(e: unknown) {
   return { content: [{ type: "text" as const, text: `Google Trends error: ${errorMessage(e)}` }], isError: true };
 }
 
-// ---------------------------------------------------------------------------
-// Tools
-// ---------------------------------------------------------------------------
+// -- tools --------------------------------------------------------------------
 
 server.registerTool(
   "trending_now",
@@ -149,9 +142,7 @@ server.registerTool(
   },
 );
 
-// ---------------------------------------------------------------------------
-// Prompt: /ask_with_trends in Claude Code and Cursor
-// ---------------------------------------------------------------------------
+// -- prompt -------------------------------------------------------------------
 
 server.registerPrompt(
   "ask_with_trends",
@@ -185,12 +176,10 @@ server.registerPrompt(
   },
 );
 
-// ---------------------------------------------------------------------------
-
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  // stdout is the MCP channel; log to stderr only.
+  // stdout belongs to the protocol, don't console.log in here
   console.error(`google-trends MCP server ready (default geo ${DEFAULT_GEO})`);
 }
 
